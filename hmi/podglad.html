@@ -35,6 +35,7 @@
     letter-spacing: 0.04em;
     min-width: 7.5em;
   }
+  #alarm { color: #5c564c; }
   button {
     background: #1c1a17;
     color: #f7f4ee;
@@ -68,6 +69,7 @@
     </svg>
     <div class="bar">
       <span class="state" id="state">ESTOP</span>
+      <span id="alarm">Obwód otwarty. Zamknij i kasuj.</span>
       <span><i class="lamp" id="lampRun"></i>praca</span>
       <span><i class="lamp" id="lampFault"></i>awaria</span>
       <span id="stats">arkusze 0 · grzałka 0%</span>
@@ -85,6 +87,16 @@
 </main>
 <script>
 const NAMES = {1:"READY",2:"FEED",3:"REGISTER",4:"RUN",5:"JAM",6:"FAULT",7:"ESTOP",8:"COVER"};
+const ALARM = {
+  READY: "Gotowy. Start podaje arkusz.",
+  FEED: "Sprzeglo podaje.",
+  REGISTER: "Czekam na rejestracje, limit 800 ms.",
+  RUN: "Arkusz jedzie do wyjscia.",
+  JAM: "Zaciecie. Zdejmij arkusz, potem kasuj.",
+  FAULT: "Awaria napedu.",
+  ESTOP: "Obwod otwarty. Zamknij i kasuj.",
+  COVER: "Pokrywa otwarta."
+};
 const sensors = [
   { id: "sEntry", x: 214, at: 230, label: "wejście" },
   { id: "sReg", x: 392, at: 408, label: "rejestracja", accent: true },
@@ -207,6 +219,7 @@ function paint() {
   machine.lampFault = machine.jam || machine.fault || !machine.runEnable;
   const name = NAMES[machine.state];
   stateEl.textContent = name;
+  document.getElementById("alarm").textContent = ALARM[name];
   stateEl.style.color = (name === "JAM" || name === "ESTOP" || name === "FAULT") ? "#a33b24" : "#1c1a17";
   lampRun.className = "lamp" + (machine.motor ? " on-run" : "");
   lampFault.className = "lamp" + (machine.lampFault ? " on-fault" : "");
