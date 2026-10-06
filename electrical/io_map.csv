@@ -1,0 +1,22 @@
+tag,adres,typ,opis
+I_EstopOk,%IX0.0,BOOL,Obwód bezpieczeństwa zamknięty
+I_CoverClosed,%IX0.1,BOOL,Pokrywa zamknięta
+I_SensEntry,%IX0.2,BOOL,Czujnik wejścia arkusza
+I_SensRegister,%IX0.3,BOOL,Czujnik rejestracji
+I_SensExit,%IX0.4,BOOL,Czujnik wyjścia arkusza
+I_MotorFault,%IX0.5,BOOL,Termik silnika (1 = awaria)
+I_Start,%IX0.6,BOOL,Przycisk START
+I_Stop,%IX0.7,BOOL,Przycisk STOP
+I_Reset,%IX1.0,BOOL,Kasowanie awarii i zacięcia
+I_MotorAux,%IX1.1,BOOL,Styk pomocniczy stycznika
+IW_TempRaw,%IW2,INT,Temperatura rolki; jednostka 0.1 °C
+Q_Motor,%QX0.0,BOOL,Cewka stycznika silnika
+Q_Clutch,%QX0.1,BOOL,Sprzęgło podawania
+Q_Gate,%QX0.2,BOOL,Zespół rejestru
+Q_LampRun,%QX0.3,BOOL,Lampa praca
+Q_LampFault,%QX0.4,BOOL,Lampa awaria
+Q_Heater,%QX0.5,BOOL,Zezwolenie grzałki 24 V
+QW_Heater,%QW0,INT,Zadanie grzałki; 0..1000 = 0.0..100.0 %
+QW_State,%QW1,INT,Kod stanu dla panelu
+QW_Sheets,%QW2,INT,Licznik arkuszy
+QW_Temp,%QW3,INT,Temperatura przepisana na panel; 0.1 °C

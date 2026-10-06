@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="280" viewBox="0 0 860 280">
+  <rect width="860" height="280" fill="#f7f4ee"/>
+  <text x="24" y="32" font-family="Consolas, monospace" font-size="18" fill="#1c1a17">Podajnik arkuszy  widok z boku, mm</text>
+  <line x1="70" y1="170" x2="790" y2="170" stroke="#1c1a17" stroke-width="8"/>
+  <line x1="70" y1="170" x2="70" y2="210" stroke="#1c1a17" stroke-width="8"/>
+  <line x1="790" y1="170" x2="790" y2="210" stroke="#1c1a17" stroke-width="8"/>
+  <circle cx="230" cy="150" r="36" fill="#f7f4ee" stroke="#1c1a17" stroke-width="4"/>
+  <circle cx="560" cy="150" r="36" fill="#f7f4ee" stroke="#1c1a17" stroke-width="4"/>
+  <rect x="214" y="78" width="32" height="28" fill="none" stroke="#1c1a17" stroke-width="3"/>
+  <text x="196" y="70" font-family="Consolas, monospace" font-size="13" fill="#1c1a17">czujnik wejscia</text>
+  <rect x="544" y="78" width="32" height="28" fill="none" stroke="#1c1a17" stroke-width="3"/>
+  <text x="520" y="70" font-family="Consolas, monospace" font-size="13" fill="#1c1a17">czujnik wyjscia</text>
+  <line x1="400" y1="120" x2="400" y2="168" stroke="#8a3b12" stroke-width="3"/>
+  <text x="408" y="116" font-family="Consolas, monospace" font-size="13" fill="#8a3b12">rejestracja</text>
+  <text x="300" y="248" font-family="Consolas, monospace" font-size="14" fill="#1c1a17">rama 400 x 180, rolka srednica 40, rozstaw rolek 220</text>
+</svg>
