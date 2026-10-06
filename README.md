@@ -13,9 +13,11 @@ Wirtualna stacja podawania arkusza. Program PLC prowadzi arkusz po czujnikach, s
 | `plc/` | OpenPLC, CODESYS albo SCL w TIA Portal | IEC 61131-3, język ST. Bloki `FB_EStop`, `FB_Motor`, `FB_SheetTrack`, `FB_PID` i program `Main` |
 | `electrical/` | KiCad 8 | schemat ideowy szafy i lista wejść/wyjść |
 | `mechanical/` | FreeCAD | parametryczny model ramy i rolek, podgląd SVG |
-| `hmi/` | Python 3 | ta sama sekwencja co PLC, testy i konsola operatora |
+| `hmi/` | Python 3 | podgląd, testy, konsola i mapa Modbus |
 
 Adresy `%IX`, `%QX`, `%IW`, `%QW` są wspólne dla `plc/MAIN.st`, `electrical/io_map.csv` i schematu.
+
+Papiery obok kodu: [sekwencja](plc/sekwencja.md), [alarmy](electrical/alarmy.csv), [Modbus](hmi/modbus.csv), [operator](hmi/operator.md), [odbiór](electrical/odbior.md).
 
 ## Sekwencja
 
