@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Podajnik arkuszy</title>
+<style>
+  :root { color-scheme: light; }
+  body {
+    margin: 0;
+    background: #f3efe6;
+    color: #1c1a17;
+    font-family: "Segoe UI", sans-serif;
+  }
+  main { max-width: 980px; margin: 0 auto; padding: 24px; }
+  h1 { font-size: 22px; font-weight: 650; margin: 0 0 4px; }
+  p.lead { margin: 0 0 16px; color: #5c564c; }
+  .stage {
+    background: #f7f4ee;
+    border: 1px solid #d9d1c3;
+    border-radius: 12px;
+    padding: 12px 12px 0;
+  }
+  svg { width: 100%; height: auto; display: block; }
+  .bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    align-items: center;
+    padding: 8px 8px 16px;
+    font-variant-numeric: tabular-nums;
+  }
+  .actions { display: flex; gap: 8px; width: 100%; }
+  .state {
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    min-width: 7.5em;
+  }
+  button {
+    background: #1c1a17;
+    color: #f7f4ee;
+    border: 0;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font: inherit;
+    cursor: pointer;
+  }
+  button.ghost { background: transparent; color: #1c1a17; border: 1px solid #1c1a17; }
+  .lamp { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 6px; vertical-align: -1px; background: #c8c0b4; }
+  .lamp.on-run { background: #2f7d4a; }
+  .lamp.on-fault { background: #a33b24; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Podajnik arkuszy</h1>
+  <p class="lead">Ta sama sekwencja co w programie PLC: sprzęgło, trzy czujniki, 800 ms na odcinek.</p>
+  <div class="stage">
+    <svg viewBox="0 0 860 250" id="drawing">
+      <line x1="70" y1="170" x2="790" y2="170" stroke="#1c1a17" stroke-width="8"/>
+      <line x1="70" y1="170" x2="70" y2="210" stroke="#1c1a17" stroke-width="8"/>
+      <line x1="790" y1="170" x2="790" y2="210" stroke="#1c1a17" stroke-width="8"/>
+      <circle cx="230" cy="150" r="36" fill="#f7f4ee" stroke="#1c1a17" stroke-width="4"/>
+      <circle cx="560" cy="150" r="36" fill="#f7f4ee" stroke="#1c1a17" stroke-width="4"/>
+      <rect id="sheet" x="120" y="122" width="78" height="22" rx="2" fill="#e7c27a" stroke="#8a3b12" stroke-width="2" visibility="hidden"/>
+      <g id="sEntry"></g>
+      <g id="sReg"></g>
+      <g id="sExit"></g>
+    </svg>
+    <div class="bar">
+      <span class="state" id="state">ESTOP</span>
+      <span><i class="lamp" id="lampRun"></i>praca</span>
+      <span><i class="lamp" id="lampFault"></i>awaria</span>
+      <span id="stats">arkusze 0 · grzałka 0%</span>
+      <span class="actions">
+        <button type="button" id="btnReset" class="ghost">Reset</button>
+        <button type="button" id="btnStart">Start</button>
+        <button type="button" id="btnJam" class="ghost">Zacięcie</button>
+      </span>
+    </div>
+  </div>
+</main>
+<script>
+const names = {1:"READY",2:"FEED",3:"REGISTER",4:"RUN",5:"JAM",6:"FAULT",7:"ESTOP",8:"COVER"};
+const sensors = [
+  { id: "sEntry", x: 214, label: "wejście" },
+  { id: "sReg", x: 392, label: "rejestracja", accent: true },
+  { id: "sExit", x: 544, label: "wyjście" }
+];
+for (const s of sensors) {
+  const g = document.getElementById(s.id);
+  const color = s.accent ? "#8a3b12" : "#1c1a17";
+  g.innerHTML = `
+    <rect x="${s.x}" y="78" width="32" height="28" fill="#f7f4ee" stroke="${color}" stroke-width="3"/>
+    <circle class="dot" cx="${s.x + 16}" cy="92" r="5" fill="#c8c0b4"/>
+    <text x="${s.x - 8}" y="68" font-family="Consolas, monospace" font-size="13" fill="${color}">${s.label}</text>`;
+}
+
+const sheet = document.getElementById("sheet");
+const stateEl = document.getElementById("state");
+const lampRun = document.getElementById("lampRun");
+const lampFault = document.getElementById("lampFault");
+const stats = document.getElementById("stats");
+
+let mode = "idle";
+let x = 120;
+let sheets = 0;
+let heat = 0;
+let armed = false;
+let jam = false;
+let run = false;
+let t0 = 0;
+
+function setDots(entry, reg, exit) {
+  const dots = document.querySelectorAll(".dot");
+  const flags = [entry, reg, exit];
+  dots.forEach((dot, i) => { dot.setAttribute("fill", flags[i] ? "#2f7d4a" : "#c8c0b4"); });
+}
+
+function render(name) {
+  stateEl.textContent = name;
+  stateEl.style.color = (name === "JAM" || name === "ESTOP") ? "#a33b24" : "#1c1a17";
+  lampRun.className = "lamp" + (run ? " on-run" : "");
+  lampFault.className = "lamp" + (jam || name === "ESTOP" ? " on-fault" : "");
+  stats.textContent = `arkusze ${sheets} · grzałka ${heat.toFixed(0)}%`;
+  const left = x;
+  const over = (px) => left < px + 32 && left + 78 > px;
+  setDots(over(214), over(392), over(544));
+}
+
+function reset() {
+  mode = "idle";
+  x = 120;
+  jam = false;
+  run = false;
+  armed = true;
+  heat = 100;
+  sheet.setAttribute("visibility", "hidden");
+  render("READY");
+}
+
+function start(kind) {
+  if (!armed || mode === "move" || mode === "jam") return;
+  mode = kind;
+  x = 120;
+  jam = false;
+  run = true;
+  heat = 100;
+  t0 = performance.now();
+  sheet.setAttribute("visibility", "visible");
+  sheet.setAttribute("x", x);
+  render("FEED");
+}
+
+function frame(now) {
+  if (mode === "move" || mode === "jam") {
+    const elapsed = now - t0;
+    x = 120 + elapsed * 0.07;
+    if (mode === "jam" && x >= 230) {
+      x = 230;
+      jam = true;
+      run = false;
+      heat = 0;
+      render("JAM");
+    } else {
+      sheet.setAttribute("x", x);
+      let name = "FEED";
+      if (x > 520) name = "RUN";
+      else if (x > 360) name = "RUN";
+      else if (x > 200) name = "REGISTER";
+      if (x > 700) {
+        sheets += 1;
+        mode = "idle";
+        run = false;
+        sheet.setAttribute("visibility", "hidden");
+        render("READY");
+      } else {
+        render(name);
+      }
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+function showAt(px, name) {
+  mode = "hold";
+  x = px;
+  run = name !== "JAM" && name !== "ESTOP" && name !== "READY";
+  jam = name === "JAM";
+  heat = jam ? 0 : 100;
+  sheet.setAttribute("visibility", name === "READY" || name === "ESTOP" ? "hidden" : "visible");
+  sheet.setAttribute("x", x);
+  render(name);
+}
+window.showAt = showAt;
+document.getElementById("btnStart").onclick = () => start("move");
+document.getElementById("btnJam").onclick = () => start("jam");
+render("ESTOP");
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
