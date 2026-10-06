@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Fuser</title>
+<style>
+  body { margin: 0; background: #e4ddd2; color: #1c1a17; font-family: "Segoe UI", sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 24px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  p.lead { margin: 0 0 16px; color: #5c564c; }
+  .stage { background: #2a2724; border-radius: 18px; padding: 14px; }
+  svg { width: 100%; height: auto; display: block; background: #f7f4ee; border-radius: 10px 10px 0 0; }
+  .bar { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; padding: 12px; background: #f7f4ee; border-radius: 0 0 10px 10px; }
+  .state { font-family: Consolas, monospace; font-weight: 700; min-width: 8em; }
+  #alarm { color: #5c564c; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
+  button { background: #1c1a17; color: #f7f4ee; border: 0; border-radius: 8px; padding: 8px 12px; font: inherit; cursor: pointer; }
+  button.ghost { background: transparent; color: #1c1a17; border: 1px solid #1c1a17; }
+  button.on { background: #8a3b12; color: #f7f4ee; border-color: #8a3b12; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Fuser</h1>
+  <p class="lead">Toner wtapia pas grzejny i wałek dociskowy. W środku pasa jest ceramika z termistorem. Palec za nipem zdejmuje arkusz, żeby nie owinął się na pas. Czujnik wybrzuszenia przed nipem kręci silnikiem.</p>
+  <div class="stage">
+    <svg viewBox="0 0 860 460" id="drawing">
+      <path d="M40 390 H250 Q300 390 330 330 Q360 270 430 230 Q500 190 560 150 H760" fill="none" stroke="#c8c0b4" stroke-width="3" stroke-dasharray="6 6"/>
+      <path d="M560 150 Q560 230 470 300 H360" fill="none" stroke="#d7c4b0" stroke-width="3" stroke-dasharray="6 6"/>
+      <ellipse cx="292" cy="300" rx="34" ry="52" fill="none" stroke="#c47a3a" stroke-width="7"/>
+      <rect x="286" y="274" width="7" height="28" fill="#6b6b6b"/>
+      <circle cx="356" cy="300" r="32" fill="#d9d3c8" stroke="#1c1a17" stroke-width="4"/>
+      <path d="M330 252 L348 236" stroke="#1c1a17" stroke-width="3"/>
+      <circle cx="500" cy="210" r="16" fill="#f7f4ee" stroke="#1c1a17" stroke-width="3"/>
+      <circle cx="500" cy="246" r="16" fill="#f7f4ee" stroke="#1c1a17" stroke-width="3"/>
+      <circle cx="700" cy="130" r="18" fill="#f7f4ee" stroke="#1c1a17" stroke-width="3"/>
+      <text x="214" y="372" font-family="Consolas, monospace" font-size="13">pas i ceramika</text>
+      <text x="392" y="292" font-family="Consolas, monospace" font-size="13">docisk</text>
+      <text x="330" y="228" font-family="Consolas, monospace" font-size="12">palec</text>
+      <text x="524" y="232" font-family="Consolas, monospace" font-size="13">decurl</text>
+      <text x="724" y="126" font-family="Consolas, monospace" font-size="13">wyjście</text>
+      <text x="430" y="360" font-family="Consolas, monospace" font-size="12" fill="#8a3b12">dupleks</text>
+      <g id="sensors"></g>
+      <rect id="sheet" x="-80" y="-12" width="70" height="16" rx="2" fill="#e7c27a" stroke="#8a3b12" stroke-width="2" visibility="hidden"/>
+    </svg>
+    <div class="bar">
+      <span class="state" id="state">STOP</span>
+      <span id="alarm">Wybierz przebieg.</span>
+      <span id="stats">silnik 0% · 20 °C</span>
+      <span class="actions" id="actions">
+        <button type="button" data-mode="normal">Normalny</button>
+        <button type="button" class="ghost" data-mode="high">Duże wybrzuszenie</button>
+        <button type="button" class="ghost" data-mode="low">Małe wybrzuszenie</button>
+        <button type="button" class="ghost" data-mode="narrow">Wąski papier</button>
+        <button type="button" class="ghost" data-mode="wrap">Zawinięcie</button>
+        <button type="button" class="ghost" data-mode="duplex">Dupleks</button>
+      </span>
+    </div>
+  </div>
+</main>
+<script>
+const sensors = [
+  { id: "buckle", x: 150, y: 368, name: "buckle / narrow", at: 0.16 },
+  { id: "nip", x: 300, y: 248, name: "nip", at: 0.40 },
+  { id: "exit", x: 430, y: 196, name: "wyjście fusera", at: 0.58 },
+  { id: "paper", x: 560, y: 118, name: "wyjście papieru", at: 0.78 }
+];
+const host = document.getElementById("sensors");
+for (const s of sensors) {
+  host.innerHTML += `
+    <g id="${s.id}">
+      <rect x="${s.x}" y="${s.y}" width="28" height="18" fill="#f7f4ee" stroke="#1c1a17" stroke-width="2"/>
+      <circle class="dot" cx="${s.x + 14}" cy="${s.y + 9}" r="4" fill="#c8c0b4"/>
+      <text x="${s.x - 6}" y="${s.y - 6}" font-family="Consolas, monospace" font-size="12">${s.name}</text>
+    </g>`;
+}
+
+const normal = [[40,390],[150,390],[250,390],[300,330],[360,270],[430,230],[500,190],[560,150],[700,130],[790,110]];
+const duplexTail = [[560,150],[540,210],[480,280],[400,320]];
+const sheet = document.getElementById("sheet");
+const stateEl = document.getElementById("state");
+const alarmEl = document.getElementById("alarm");
+const statsEl = document.getElementById("stats");
+
+let mode = "idle";
+let progress = 0;
+let last = 0;
+
+function pointAt(path, t) {
+  const span = path.length - 1;
+  const x = Math.min(Math.max(t, 0), 0.999) * span;
+  const i = Math.floor(x);
+  const f = x - i;
+  const a = path[i];
+  const b = path[Math.min(i + 1, path.length - 1)];
+  return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI];
+}
+
+function speedOf() {
+  if (mode === "idle") return { pct: 0, temp: 20, rate: 0 };
+  if (mode === "high") return { pct: 130, temp: 185, rate: 0.00028 };
+  if (mode === "low") return { pct: 70, temp: 185, rate: 0.00012 };
+  if (mode === "narrow") return { pct: 80, temp: 165, rate: 0.00014 };
+  if (mode === "wrap") return { pct: 0, temp: 185, rate: 0 };
+  return { pct: 100, temp: 185, rate: 0.00018 };
+}
+
+function paint(px, py, deg, covered) {
+  const run = speedOf();
+  const name = mode === "idle" ? "STOP" : mode === "wrap" ? "WRAP" : mode === "duplex" ? "DUPLEX" : "RUN";
+  stateEl.textContent = name;
+  stateEl.style.color = name === "WRAP" ? "#a33b24" : "#1c1a17";
+  const texts = {
+    idle: "Wybierz przebieg.",
+    normal: "Wybrzuszenie w normie, silnik 100%.",
+    high: "Za dużo papieru przed rolką. Silnik przyspiesza, żeby nie zgnieść arkusza.",
+    low: "Arkusz napięty. Silnik zwalnia, toner ma czas się wtopić bez rozmazania.",
+    narrow: "Wąskie medium. Niższa prędkość i niższa temperatura, żeby nie zniszczyć rolki.",
+    wrap: "Czujnik wyjścia fusera widzi zawinięcie. Napęd stoi, zanim arkusz owinie rolkę.",
+    duplex: "Tył arkusza minął czujnik wyjścia. Papier cofa się w ścieżkę dupleksu."
+  };
+  alarmEl.textContent = texts[mode];
+  statsEl.textContent = "silnik " + run.pct + "% · " + run.temp + " °C";
+  sensors.forEach((s, i) => {
+    const dot = document.querySelectorAll(".dot")[i];
+    dot.setAttribute("fill", covered[i] ? "#2f7d4a" : "#c8c0b4");
+  });
+  if (px == null) sheet.setAttribute("visibility", "hidden");
+  else {
+    sheet.setAttribute("visibility", "visible");
+    sheet.setAttribute("transform", "translate(" + px + " " + py + ") rotate(" + deg + ")");
+  }
+}
+
+function frame(now) {
+  if (!last) last = now;
+  const dt = now - last;
+  last = now;
+  if (mode === "idle") { paint(null, null, 0, [false, false, false, false]); requestAnimationFrame(frame); return; }
+
+  const run = speedOf();
+  if (mode === "wrap") {
+    progress = Math.min(progress + dt * 0.0002, 0.42);
+    const [x, y, deg] = pointAt(normal, progress);
+    const orbit = progress > 0.38;
+    paint(orbit ? 300 + Math.cos(now / 180) * 50 : x, orbit ? 300 + Math.sin(now / 180) * 50 : y, deg, [true, true, false, false]);
+    requestAnimationFrame(frame);
+    return;
+  }
+
+  progress += dt * run.rate;
+  let path = normal;
+  let t = progress;
+  if (mode === "duplex" && progress > 0.78) {
+    path = duplexTail;
+    t = (progress - 0.78) / 0.35;
+  }
+  if (progress >= (mode === "duplex" ? 1.15 : 1)) {
+    mode = "idle";
+    progress = 0;
+    paint(null, null, 0, [false, false, false, false]);
+    requestAnimationFrame(frame);
+    return;
+  }
+  const [x, y, deg] = pointAt(path, Math.min(t, 0.99));
+  const covered = sensors.map((s) => Math.abs((mode === "duplex" && progress > 0.78 ? 0.8 : progress) - s.at) < 0.08);
+  if (mode === "high") covered[0] = progress > 0.12 && progress < 0.48;
+  paint(x, y, deg, covered);
+  requestAnimationFrame(frame);
+}
+
+document.getElementById("actions").onclick = (event) => {
+  const button = event.target.closest("button");
+  if (!button) return;
+  mode = button.dataset.mode;
+  progress = 0;
+  last = 0;
+  document.querySelectorAll("#actions button").forEach((el) => el.classList.toggle("on", el === button));
+};
+
+paint(null, null, 0, [false, false, false, false]);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
