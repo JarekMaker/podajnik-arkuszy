@@ -7,7 +7,7 @@
   :root { color-scheme: light; }
   body {
     margin: 0;
-    background: #f3efe6;
+    background: #e4ddd2;
     color: #1c1a17;
     font-family: "Segoe UI", sans-serif;
   }
@@ -15,22 +15,24 @@
   h1 { font-size: 22px; font-weight: 650; margin: 0 0 4px; }
   p.lead { margin: 0 0 16px; color: #5c564c; }
   .stage {
-    background: #f7f4ee;
-    border: 1px solid #d9d1c3;
-    border-radius: 12px;
-    padding: 12px 12px 0;
+    background: #2a2724;
+    border-radius: 18px;
+    padding: 14px;
   }
-  svg { width: 100%; height: auto; display: block; }
+  svg { width: 100%; height: auto; display: block; background: #f7f4ee; border-radius: 10px 10px 0 0; }
   .bar {
     display: flex;
     flex-wrap: wrap;
     gap: 10px 16px;
     align-items: center;
-    padding: 8px 8px 16px;
+    padding: 12px 12px 14px;
     font-variant-numeric: tabular-nums;
+    background: #f7f4ee;
+    border-radius: 0 0 10px 10px;
   }
   .actions { display: flex; gap: 8px; width: 100%; }
   .state {
+    font-family: Consolas, monospace;
     font-weight: 700;
     letter-spacing: 0.04em;
     min-width: 7.5em;
