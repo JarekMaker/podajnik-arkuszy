@@ -1,0 +1,5 @@
+rejestr,plc,jednostka,opis
+0,%QW0,0.1 procent,zadanie grzalki 0..1000
+1,%QW1,kod,stan maszyny
+2,%QW2,sztuki,licznik arkuszy
+3,%QW3,0.1 C,temperatura rolki
