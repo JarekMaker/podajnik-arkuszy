@@ -2,6 +2,8 @@
 
 ![Podajnik arkuszy, widok z boku](mechanical/podajnik.svg)
 
+Podgląd w przeglądarce: [hmi/podglad.html](hmi/podglad.html). Najpierw Reset, potem Start.
+
 Wirtualna stacja podawania arkusza. Program PLC prowadzi arkusz po czujnikach, schemat opisuje szafę, model opisuje mechanikę, a panel czyta stan maszyny. Logika jest ta sama co w trakcie papieru drukarki: czujnik ma zadziałać w czasie, inaczej jest zacięcie i napęd odpada.
 
 ## Co gdzie leży
