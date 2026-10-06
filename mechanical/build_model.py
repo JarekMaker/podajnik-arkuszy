@@ -58,8 +58,11 @@ def main():
     doc.recompute()
     doc.saveAs(out)
     print(out)
+    sys.stdout.flush()
     return 0
 
 
 if __name__ == "__main__":
     sys.exit(main())
+elif "FreeCAD" in sys.modules:
+    main()
