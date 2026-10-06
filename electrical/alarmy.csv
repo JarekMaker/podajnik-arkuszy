@@ -1,0 +1,5 @@
+kod,stan,kiedy,co_zrobic
+7,ESTOP,grzyb albo start bez kasowania,zamknij obwod i nacisnij reset
+5,JAM,czujnik nie wszedl w 800 ms albo stop w trakcie arkusza,zdejmij arkusz i kasuj
+8,COVER,pokrywa otwarta,zamknij pokrywe
+6,FAULT,termik albo brak styku stycznika przez 500 ms,sprawdz naped i kasuj
