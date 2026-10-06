@@ -72,6 +72,8 @@
       <span><i class="lamp" id="lampFault"></i>awaria</span>
       <span id="stats">arkusze 0 · grzałka 0%</span>
       <span class="actions">
+        <button type="button" id="btnEstop" class="ghost">E-stop</button>
+        <button type="button" id="btnCover" class="ghost">Pokrywa</button>
         <button type="button" id="btnReset" class="ghost">Reset</button>
         <button type="button" id="btnStart">Start</button>
         <button type="button" id="btnStop" class="ghost">Stop</button>
@@ -234,6 +236,14 @@ function tick() {
   paint();
 }
 
+document.getElementById("btnEstop").onclick = () => {
+  estopOk = !estopOk;
+  document.getElementById("btnEstop").textContent = estopOk ? "E-stop" : "E-stop otwarty";
+};
+document.getElementById("btnCover").onclick = () => {
+  coverClosed = !coverClosed;
+  document.getElementById("btnCover").textContent = coverClosed ? "Pokrywa" : "Pokrywa otwarta";
+};
 document.getElementById("btnReset").onclick = () => { pulse.reset = true; };
 document.getElementById("btnStart").onclick = () => { blockReg = false; pulse.start = true; };
 document.getElementById("btnStop").onclick = () => { pulse.stop = true; };
