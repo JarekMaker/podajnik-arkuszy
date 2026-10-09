@@ -16,6 +16,11 @@ VAR
     I_Reset AT %IX1.0 : BOOL;
     I_MotorAux AT %IX1.1 : BOOL;
     I_FuserReset AT %IX1.2 : BOOL;
+    I_Nip AT %IX1.3 : BOOL;
+    I_BuckleHigh AT %IX1.4 : BOOL;
+    I_BuckleLow AT %IX1.5 : BOOL;
+    I_NarrowMedia AT %IX1.6 : BOOL;
+    I_FuserWrap AT %IX1.7 : BOOL;
     IW_TempRaw AT %IW2 : INT;
 
     Q_Motor AT %QX0.0 : BOOL;
@@ -24,6 +29,7 @@ VAR
     Q_LampRun AT %QX0.3 : BOOL;
     Q_LampFault AT %QX0.4 : BOOL;
     Q_Heater AT %QX0.5 : BOOL;
+    Q_FuserMotor AT %QX0.6 : BOOL;
 
     QW_Heater AT %QW0 : INT; (* 0..1000 = 0.0..100.0 % *)
     QW_State AT %QW1 : INT;
@@ -31,12 +37,14 @@ VAR
     QW_Temp AT %QW3 : INT;
     QW_FuserK AT %QW4 : INT; (* tysiace stron od resetu fusera *)
     QW_FuserSvc AT %QW5 : INT; (* 0 ok, 1 ostrzezenie, 2 wymiana *)
+    QW_FuserSpeed AT %QW6 : INT; (* procent predkosci silnika fusera *)
 
     EStop : FB_EStop;
     Drive : FB_Motor;
     Track : FB_SheetTrack;
     Heat : FB_PID;
     FuserLife : FB_FuserLife;
+    Buckle : FB_FuserBuckle;
     rStart : R_TRIG;
     rStop : R_TRIG;
     rReset : R_TRIG;
@@ -60,8 +68,16 @@ END_IF;
 MotionOk := EStop.RunEnable AND I_CoverClosed AND NOT I_MotorFault AND NOT Track.Jam;
 
 FuserLife(SheetCount := Track.SheetCount, ResetService := I_FuserReset);
+Buckle(
+    Enable := EStop.RunEnable AND I_CoverClosed AND NOT FuserLife.Due,
+    Nip := I_Nip,
+    BuckleHigh := I_BuckleHigh,
+    BuckleLow := I_BuckleLow,
+    NarrowMedia := I_NarrowMedia,
+    Wrap := I_FuserWrap
+);
 
-IF rStart.Q AND MotionOk AND NOT Track.Busy AND NOT FuserLife.Due THEN
+IF rStart.Q AND MotionOk AND NOT Track.Busy AND NOT FuserLife.Due AND NOT Buckle.Jam THEN
     RunRequest := TRUE;
 END_IF;
 
@@ -99,7 +115,7 @@ IF NOT EStop.RunEnable THEN
     State := 7;
 ELSIF Drive.Fault OR I_MotorFault THEN
     State := 6;
-ELSIF Track.Jam THEN
+ELSIF Buckle.Jam OR Track.Jam THEN
     State := 5;
 ELSIF NOT I_CoverClosed THEN
     State := 8;
@@ -117,8 +133,9 @@ Q_Motor := Drive.Run AND EStop.RunEnable;
 Q_Clutch := Track.Clutch AND EStop.RunEnable AND I_CoverClosed AND NOT Track.Jam;
 Q_Gate := Track.AtRegister AND EStop.RunEnable AND I_CoverClosed AND NOT Track.Jam;
 Q_LampRun := Q_Motor;
-Q_LampFault := Track.Jam OR Drive.Fault OR NOT EStop.RunEnable OR FuserLife.Due;
-Q_Heater := Heat.Out > 1.0;
+Q_LampFault := Track.Jam OR Drive.Fault OR NOT EStop.RunEnable OR FuserLife.Due OR Buckle.Jam;
+Q_Heater := (Heat.Out > 1.0) AND Buckle.HeaterOn;
+Q_FuserMotor := Buckle.SpeedPct > 0;
 
 QW_Heater := REAL_TO_INT(Heat.Out * 10.0);
 QW_State := State;
@@ -132,5 +149,6 @@ ELSIF FuserLife.Warn THEN
 ELSE
     QW_FuserSvc := 0;
 END_IF;
+QW_FuserSpeed := Buckle.SpeedPct;
 
 END_PROGRAM
