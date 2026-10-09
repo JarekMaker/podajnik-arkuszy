@@ -3,3 +3,5 @@ rejestr,plc,jednostka,opis
 1,%QW1,kod,stan maszyny
 2,%QW2,sztuki,licznik arkuszy
 3,%QW3,0.1 C,temperatura rolki
+4,%QW4,tysiace,strony fusera od resetu serwisowego
+5,%QW5,kod,0 ok 1 ostrzezenie 2 wymiana fusera
