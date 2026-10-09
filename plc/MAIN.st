@@ -15,6 +15,7 @@ VAR
     I_Stop AT %IX0.7 : BOOL;
     I_Reset AT %IX1.0 : BOOL;
     I_MotorAux AT %IX1.1 : BOOL;
+    I_FuserReset AT %IX1.2 : BOOL;
     IW_TempRaw AT %IW2 : INT;
 
     Q_Motor AT %QX0.0 : BOOL;
@@ -28,11 +29,14 @@ VAR
     QW_State AT %QW1 : INT;
     QW_Sheets AT %QW2 : INT;
     QW_Temp AT %QW3 : INT;
+    QW_FuserK AT %QW4 : INT; (* tysiace stron od resetu fusera *)
+    QW_FuserSvc AT %QW5 : INT; (* 0 ok, 1 ostrzezenie, 2 wymiana *)
 
     EStop : FB_EStop;
     Drive : FB_Motor;
     Track : FB_SheetTrack;
     Heat : FB_PID;
+    FuserLife : FB_FuserLife;
     rStart : R_TRIG;
     rStop : R_TRIG;
     rReset : R_TRIG;
@@ -55,7 +59,9 @@ END_IF;
 
 MotionOk := EStop.RunEnable AND I_CoverClosed AND NOT I_MotorFault AND NOT Track.Jam;
 
-IF rStart.Q AND MotionOk AND NOT Track.Busy THEN
+FuserLife(SheetCount := Track.SheetCount, ResetService := I_FuserReset);
+
+IF rStart.Q AND MotionOk AND NOT Track.Busy AND NOT FuserLife.Due THEN
     RunRequest := TRUE;
 END_IF;
 
@@ -111,12 +117,20 @@ Q_Motor := Drive.Run AND EStop.RunEnable;
 Q_Clutch := Track.Clutch AND EStop.RunEnable AND I_CoverClosed AND NOT Track.Jam;
 Q_Gate := Track.AtRegister AND EStop.RunEnable AND I_CoverClosed AND NOT Track.Jam;
 Q_LampRun := Q_Motor;
-Q_LampFault := Track.Jam OR Drive.Fault OR NOT EStop.RunEnable;
+Q_LampFault := Track.Jam OR Drive.Fault OR NOT EStop.RunEnable OR FuserLife.Due;
 Q_Heater := Heat.Out > 1.0;
 
 QW_Heater := REAL_TO_INT(Heat.Out * 10.0);
 QW_State := State;
 QW_Sheets := Track.SheetCount;
 QW_Temp := IW_TempRaw;
+QW_FuserK := FuserLife.Thousands;
+IF FuserLife.Due THEN
+    QW_FuserSvc := 2;
+ELSIF FuserLife.Warn THEN
+    QW_FuserSvc := 1;
+ELSE
+    QW_FuserSvc := 0;
+END_IF;
 
 END_PROGRAM
