@@ -23,3 +23,10 @@ QW_Temp,%QW3,INT,Temperatura przepisana na panel; 0.1 °C
 I_FuserReset,%IX1.2,BOOL,Kasowanie licznika fusera po wymianie
 QW_FuserK,%QW4,INT,Strony fusera od resetu, w tysiącach
 QW_FuserSvc,%QW5,INT,0 ok, 1 ostrzeżenie od 140 tys., 2 wymiana przy 150 tys.
+I_Nip,%IX1.3,BOOL,Czujnik nip fusera, rolki trzymają arkusz
+I_BuckleHigh,%IX1.4,BOOL,Za duże wybrzuszenie przed fuserm
+I_BuckleLow,%IX1.5,BOOL,Za małe wybrzuszenie, arkusz napięty
+I_NarrowMedia,%IX1.6,BOOL,Wąskie medium, prawy czujnik
+I_FuserWrap,%IX1.7,BOOL,Czujnik wyjścia fusera, zawinięcie na pas
+Q_FuserMotor,%QX0.6,BOOL,Silnik fusera
+QW_FuserSpeed,%QW6,INT,Prędkość silnika fusera, procent
