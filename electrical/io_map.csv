@@ -20,3 +20,6 @@ QW_Heater,%QW0,INT,Zadanie grzałki; 0..1000 = 0.0..100.0 %
 QW_State,%QW1,INT,Kod stanu dla panelu
 QW_Sheets,%QW2,INT,Licznik arkuszy
 QW_Temp,%QW3,INT,Temperatura przepisana na panel; 0.1 °C
+I_FuserReset,%IX1.2,BOOL,Kasowanie licznika fusera po wymianie
+QW_FuserK,%QW4,INT,Strony fusera od resetu, w tysiącach
+QW_FuserSvc,%QW5,INT,0 ok, 1 ostrzeżenie od 140 tys., 2 wymiana przy 150 tys.
