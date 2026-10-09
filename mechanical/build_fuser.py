@@ -1,35 +1,23 @@
 """Fuser type 01, 220-240 V, czesc 41X0253.
 
-Zrodlo: serwisowka 7528 (CX725, XC4140 i ta sama rodzina).
-Rozdzial Theory of operation, Fuser section, plus katalog czesci
-i kody 121.5x grzalek. Wymiary grzalki z opisu konstrukcji pasa
-Lexmarka: panel okolo 230 mm, nip na dole pasa, walek dociskowy
-pod pasem.
-
-Pas kreci sie wokol korpusu z grzalka. Walek dociskowy (backup roll)
-dopycha pas od dolu: tam jest nip, cieplo i nacisk wtapiaja toner.
-Za nipem palce redrive sciagaja arkusz z pasa, zeby nie nawinal sie
-na pas. Czujnik wyjsciowy fuser exit pilnuje tego samego.
-
-Os X to kierunek papieru. Os Y to szerokosc kartki: minus to lewa
-strona (czujnik wybrzuszenia), plus to prawa (czujnik waskiego
-medium). Tak jest w instrukcji zdejmowania tych dwoch czujnikow.
+Serwisowka 7528, Fuser section. Papier idzie poziomo, os X.
+Szerokosc kartki to os Y: minus lewo (wybrzuszenie), plus prawo
+(waskie medium). Nip jest pod pasem, walek dociskowy od dolu.
 
     freecadcmd mechanical/build_fuser.py
 
-Wymiary w milimetrach. To model pogladowy sekcji, nie rysunek
-warsztatowy: serwisowka nie podaje tolerancji.
+Wymiary pogladowe, w milimetrach. Serwisowka nie podaje tolerancji.
 """
 
 import os
 import sys
 
-HEATER_LEN = 230.0
-BELT_WIDTH = 270.0
-ROLL_R = 18.0
 BELT_R = 16.0
-BELT_STRAIGHT = 40.0
-NIP_X = BELT_STRAIGHT / 2.0
+STRAIGHT = 38.0
+BELT_W = 270.0
+ROLL_R = 20.0
+NIP_X = STRAIGHT / 2.0
+Y0 = -BELT_W / 2.0
 
 
 def main():
@@ -41,41 +29,30 @@ def main():
         return 1
 
     doc = FreeCAD.newDocument("fuser")
-    colors = {}
-    transparent = {}
 
-    def put(name, shape, color, alpha=None):
+    def put(name, shape):
         if not shape.isValid() or shape.Volume < 1.0:
             raise RuntimeError(name)
         obj = doc.addObject("Part::Feature", name)
         obj.Shape = shape
-        colors[name] = color
-        if alpha is not None:
-            transparent[name] = alpha
         return obj
 
-    def along_y(name, radius, length, x, y, z, color):
+    def box(name, x, y, z, dx, dy, dz):
+        return put(name, Part.makeBox(dx, dy, dz, FreeCAD.Vector(x, y, z)))
+
+    def cyl_y(name, radius, length, x, y, z):
         shape = Part.makeCylinder(
             radius, length, FreeCAD.Vector(x, y, z), FreeCAD.Vector(0, 1, 0)
         )
-        return put(name, shape, color)
+        return put(name, shape)
 
-    def box(name, x, y, z, dx, dy, dz, color, alpha=None):
-        return put(name, Part.makeBox(dx, dy, dz, FreeCAD.Vector(x, y, z)), color, alpha)
+    def plate(name, points, y, dy):
+        face = Part.Face(Part.makePolygon(points + [points[0]]))
+        solid = face.extrude(FreeCAD.Vector(0, dy, 0))
+        solid.translate(FreeCAD.Vector(0, y, 0))
+        return put(name, solid)
 
-    def fuse(name, shapes, color):
-        solid = shapes[0]
-        for other in shapes[1:]:
-            solid = solid.fuse(other)
-        return put(name, solid.removeSplitter(), color)
-
-    def plate_xz(name, points, y0, dy, color):
-        wire = Part.makePolygon(points + [points[0]])
-        solid = Part.Face(wire).extrude(FreeCAD.Vector(0, dy, 0))
-        solid.translate(FreeCAD.Vector(0, y0, 0))
-        return put(name, solid, color)
-
-    def belt_loop(y0, length, x0, z0, straight, radius, thick):
+    def belt_loop(y, length, x0, z0, straight, radius, thick):
         def ring(rad):
             right = x0 + straight
             top_l = FreeCAD.Vector(x0, 0, z0 + rad)
@@ -94,178 +71,178 @@ def main():
 
         wall = ring(radius).cut(ring(radius - thick))
         solid = wall.extrude(FreeCAD.Vector(0, length, 0))
-        solid.translate(FreeCAD.Vector(0, y0, 0))
+        solid.translate(FreeCAD.Vector(0, y, 0))
         return solid
 
-    y_belt = -BELT_WIDTH / 2.0
-    belt_z = BELT_R
-    roll_y = y_belt + 12.0
-    roll_len = BELT_WIDTH - 28.0
-    roll_z = 1.6 - ROLL_R
+    def gear(name, radius, width, x, y, z, teeth):
+        hub = Part.makeCylinder(radius * 0.45, width, FreeCAD.Vector(x, y, z), FreeCAD.Vector(0, 1, 0))
+        rim = Part.makeCylinder(radius - 1.4, width, FreeCAD.Vector(x, y, z), FreeCAD.Vector(0, 1, 0))
+        parts = [hub, rim]
+        step = 360.0 / teeth
+        for index in range(teeth):
+            tooth = Part.makeBox(1.8, width, 3.4, FreeCAD.Vector(x - 0.9, y, z + radius - 2.6))
+            tooth.rotate(FreeCAD.Vector(x, y, z), FreeCAD.Vector(0, 1, 0), index * step)
+            parts.append(tooth)
+        return put(name, Part.makeCompound(parts))
+
+    def optical(name, x, y, z):
+        body = Part.makeBox(16.0, 14.0, 18.0, FreeCAD.Vector(x, y, z))
+        slot = Part.makeBox(10.0, 14.0, 8.0, FreeCAD.Vector(x + 3.0, y, z + 8.0))
+        return put(name, body.cut(slot))
 
     cru = []
-    cru.append(
-        put(
-            "fuser_belt",
-            belt_loop(y_belt, BELT_WIDTH, 0.0, belt_z, BELT_STRAIGHT, BELT_R, 1.4),
-            (0.16, 0.13, 0.11),
-        )
-    )
-    housing = Part.makeBox(24.0, BELT_WIDTH - 20.0, 20.0, FreeCAD.Vector(8.0, y_belt + 10.0, 5.5))
-    # Okna w korpusie, zeby z gory bylo widac trzy strefy grzalki.
-    for slot_y, slot_dy in ((-107.0, 60.0), (-30.0, 60.0), (47.0, 60.0)):
-        housing = housing.cut(Part.makeBox(12.0, slot_dy, 24.0, FreeCAD.Vector(13.0, slot_y, 3.7)))
-    cru.append(put("heater_housing", housing, (0.45, 0.46, 0.48)))
-
-    # Trzy odcinki grzalki stykaja sie ze soba. Prawa strefa jest od strony
-    # czujnika waskiego medium: waski arkusz jej nie zakrywa.
-    zones = [
-        ("heater_main", -115.0, 76.0, (0.93, 0.84, 0.64)),
-        ("heater_middle", -38.0, 76.0, (0.86, 0.62, 0.32)),
-        ("heater_secondary", 39.0, 76.0, (0.72, 0.38, 0.18)),
-    ]
-    for name, y, dy, color in zones:
-        cru.append(box(name, 12.5, y, 1.45, 15.0, dy, 2.2, color))
-        cru.append(
-            box(
-                "thermistor_" + name.split("_", 1)[1],
-                16.0,
-                y + dy / 2.0 - 4.0,
-                3.65,
-                7.0,
-                8.0,
-                5.0,
-                (0.85, 0.28, 0.12),
-            )
-        )
-
-    cru.append(box("thermistor_edge", 16.0, 100.0, 3.65, 7.0, 8.0, 5.0, (0.85, 0.28, 0.12)))
-    cru.append(box("thermistor_belt_contact", 6.0, -8.0, 1.6, 5.0, 7.0, 2.2, (0.85, 0.28, 0.12)))
-    cru.append(box("thermistor_belt_noncontact", 16.0, 18.0, 34.5, 8.0, 10.0, 6.0, (0.25, 0.25, 0.28)))
-
-    cru.append(along_y("backup_roll", ROLL_R, roll_len, NIP_X, roll_y, roll_z, (0.10, 0.10, 0.11)))
-    cru.append(along_y("backup_shaft", 6.0, BELT_WIDTH + 36.0, NIP_X, y_belt - 28.0, roll_z, (0.72, 0.73, 0.75)))
-    cru.append(box("thermistor_backup", NIP_X - 4.0, y_belt - 24.0, roll_z - 4.0, 8.0, 8.0, 8.0, (0.85, 0.28, 0.12)))
-    cru.append(box("thermistor_backup_narrow", NIP_X - 4.0, y_belt + BELT_WIDTH - 4.0, roll_z - 4.0, 8.0, 8.0, 8.0, (0.85, 0.28, 0.12)))
-
-    # Redrive deflector: palce za nipem, zdejmuja arkusz z pasa.
-    for index, ypos in enumerate((-80.0, -40.0, 0.0, 40.0, 80.0)):
-        pts = [
-            FreeCAD.Vector(36.0, 0, 1.0),
-            FreeCAD.Vector(54.0, 0, 8.0),
-            FreeCAD.Vector(54.0, 0, 9.4),
-            FreeCAD.Vector(36.0, 0, 2.2),
-        ]
-        cru.append(plate_xz(f"stripper_{index + 1}", pts, ypos, 4.0, (0.78, 0.79, 0.80)))
-
-    cheek_color = (0.55, 0.57, 0.60)
-    for name, ypos in (("end_left", y_belt - 8.0), ("end_right", y_belt + BELT_WIDTH)):
-        plate = Part.makeBox(78.0, 7.0, 62.0, FreeCAD.Vector(-16.0, ypos, -28.0))
-        window = Part.makeBox(52.0, 7.0, 36.0, FreeCAD.Vector(-2.0, ypos, -2.0))
-        cru.append(put(name, plate.cut(window), cheek_color))
-
-    cru.append(box("fuser_base", -8.0, y_belt, -36.0, 56.0, BELT_WIDTH, 4.0, cheek_color))
-    cru.append(box("fuser_lock", 62.0, y_belt + BELT_WIDTH - 2.0, 8.0, 22.0, 8.0, 8.0, (0.72, 0.14, 0.12)))
-    cru.append(box("lock_lever", 76.0, y_belt + BELT_WIDTH - 1.0, 16.0, 6.0, 6.0, 28.0, (0.72, 0.14, 0.12)))
-
-    # CN1: AC Common i trzy wyjscia grzalek.
-    cru.append(box("connector_cn1", -4.0, y_belt - 16.0, 6.0, 16.0, 12.0, 14.0, (0.12, 0.12, 0.13)))
-    for index, xpos in enumerate((0.0, 4.0, 8.0, 12.0)):
-        cru.append(
-            box(f"cn1_pin_{index + 1}", xpos, y_belt - 20.0, 10.0, 2.2, 6.0, 2.2, (0.74, 0.60, 0.30))
-        )
-
     path = []
-    ramp = [
-        FreeCAD.Vector(-98.0, 0, -24.0),
-        FreeCAD.Vector(-64.0, 0, 0.0),
-        FreeCAD.Vector(-64.0, 0, -1.6),
-        FreeCAD.Vector(-98.0, 0, -25.6),
+    drive = []
+
+    cru.append(put("fuser_belt", belt_loop(Y0, BELT_W, 0.0, BELT_R, STRAIGHT, BELT_R, 1.3)))
+
+    housing = Part.makeBox(22.0, BELT_W - 24.0, 18.0, FreeCAD.Vector(8.0, Y0 + 12.0, 6.0))
+    for slot_y in (-96.0, -28.0, 40.0):
+        housing = housing.cut(Part.makeBox(10.0, 52.0, 16.0, FreeCAD.Vector(13.0, slot_y, 8.0)))
+    cru.append(put("heater_housing", housing))
+
+    # Trzy strefy stykaja sie. Prawa jest od strony waskiego medium.
+    zones = (("heater_main", -110.0, 73.0), ("heater_middle", -36.0, 72.0), ("heater_secondary", 37.0, 73.0))
+    for name, y, dy in zones:
+        cru.append(box(name, 13.0, y, 1.25, 12.0, dy, 2.0))
+        cru.append(cyl_y("thermistor_" + name.split("_", 1)[1], 2.2, 4.0, 19.0, y + dy / 2.0 - 2.0, 3.3))
+
+    cru.append(cyl_y("thermistor_edge", 2.0, 4.0, 19.0, 104.0, 3.4))
+    cru.append(cyl_y("thermistor_belt_contact", 2.0, 5.0, 7.0, -6.0, 2.2))
+    cru.append(cyl_y("thermistor_belt_noncontact", 3.2, 6.0, NIP_X, 10.0, 34.2))
+
+    roll_z = 1.0 - ROLL_R
+    cru.append(cyl_y("backup_roll", ROLL_R, BELT_W - 36.0, NIP_X, Y0 + 18.0, roll_z))
+    cru.append(cyl_y("backup_shaft", 6.0, BELT_W + 40.0, NIP_X, Y0 - 22.0, roll_z))
+    cru.append(cyl_y("thermistor_backup", 3.0, 5.0, NIP_X, Y0 - 16.0, roll_z))
+    cru.append(cyl_y("thermistor_backup_narrow", 3.0, 5.0, NIP_X, Y0 + BELT_W - 2.0, roll_z))
+
+    for y in (Y0 + 28.0, -Y0 - 36.0):
+        rings = []
+        for turn in range(7):
+            ring = Part.makeTorus(5.2, 0.7)
+            ring.translate(FreeCAD.Vector(NIP_X, y, roll_z - 16.0 + turn * 2.4))
+            rings.append(ring)
+        rod = Part.makeCylinder(1.1, 18.0, FreeCAD.Vector(NIP_X, y, roll_z - 18.0), FreeCAD.Vector(0, 0, 1))
+        cru.append(put("spring_left" if y < 0 else "spring_right", Part.makeCompound(rings + [rod])))
+
+    for index, ypos in enumerate((-100.0, -50.0, 0.0, 50.0, 100.0)):
+        pts = [
+            FreeCAD.Vector(42.0, 0, 0.8),
+            FreeCAD.Vector(64.0, 0, 2.4),
+            FreeCAD.Vector(64.0, 0, 3.3),
+            FreeCAD.Vector(42.0, 0, 1.7),
+        ]
+        cru.append(plate("stripper_%s" % (index + 1), pts, ypos, 3.2))
+
+    deflector = [
+        FreeCAD.Vector(60.0, 0, 2.6),
+        FreeCAD.Vector(92.0, 0, 2.6),
+        FreeCAD.Vector(92.0, 0, 3.8),
+        FreeCAD.Vector(60.0, 0, 3.8),
     ]
-    path.append(plate_xz("entrance_guide", ramp, -120.0, 240.0, (0.70, 0.71, 0.73)))
-    path.append(box("paper_guide", -66.0, -130.0, -3.0, 40.0, 260.0, 1.6, (0.70, 0.71, 0.73)))
+    path.append(plate("redrive_deflector", deflector, -120.0, 240.0))
 
-    # Lewy czujnik to wybrzuszenie, prawy to waskie medium.
-    path.append(box("sensor_fuser_buckle", -58.0, -148.0, -6.0, 18.0, 22.0, 16.0, (0.16, 0.38, 0.78)))
-    path.append(box("buckle_flag", -50.0, -128.0, -1.0, 2.0, 16.0, 10.0, (0.16, 0.38, 0.78)))
-    path.append(box("sensor_narrow_media", -58.0, 126.0, -6.0, 18.0, 22.0, 16.0, (0.16, 0.38, 0.78)))
-    path.append(box("narrow_flag", -50.0, 112.0, -1.0, 2.0, 16.0, 10.0, (0.16, 0.38, 0.78)))
+    for name, ypos in (("end_left", Y0 - 6.0), ("end_right", -Y0)):
+        plate_s = Part.makeBox(86.0, 6.0, 70.0, FreeCAD.Vector(-20.0, ypos, -32.0))
+        window = Part.makeBox(58.0, 6.0, 40.0, FreeCAD.Vector(-6.0, ypos, -4.0))
+        cru.append(put(name, plate_s.cut(window)))
+        for sx, sz in ((-12.0, 30.0), (58.0, 30.0), (-12.0, -24.0), (58.0, -24.0)):
+            cru.append(cyl_y("screw_%s_%d_%d" % (name, int(sx), int(sz)), 2.2, 3.0, sx, ypos - 1.0, sz))
 
-    # Czujnik nip stoi przed pasem i patrzy, czy walek trzyma arkusz.
-    nip_sensor = Part.makeBox(12.0, 8.0, 18.0, FreeCAD.Vector(-40.0, -22.0, 0.0))
-    nip_sensor = nip_sensor.fuse(Part.makeBox(12.0, 8.0, 18.0, FreeCAD.Vector(-40.0, 14.0, 0.0)))
-    nip_sensor = nip_sensor.fuse(Part.makeBox(12.0, 44.0, 5.0, FreeCAD.Vector(-40.0, -22.0, 13.0)))
-    path.append(put("sensor_fuser_nip", nip_sensor.removeSplitter(), (0.95, 0.78, 0.15)))
+    cru.append(box("fuser_base", -14.0, Y0, -40.0, 78.0, BELT_W, 4.0))
+    cover = Part.makeBox(78.0, BELT_W - 8.0, 3.0, FreeCAD.Vector(-14.0, Y0 + 4.0, 33.5))
+    cover = cover.cut(Part.makeBox(46.0, 180.0, 3.0, FreeCAD.Vector(2.0, -90.0, 33.5)))
+    cru.append(put("top_cover", cover))
 
-    path.append(box("sensor_fuser_exit", 58.0, -10.0, 10.0, 14.0, 20.0, 12.0, (0.16, 0.38, 0.78)))
+    cru.append(box("fuser_lock", 66.0, -Y0 - 2.0, 4.0, 16.0, 8.0, 8.0))
+    cru.append(box("lock_lever", 78.0, -Y0 - 1.0, 8.0, 5.0, 6.0, 26.0))
 
+    cru.append(box("connector_cn1", -6.0, Y0 - 14.0, 8.0, 18.0, 10.0, 12.0))
+    for index, xpos in enumerate((0.0, 4.0, 8.0, 12.0)):
+        cru.append(box("cn1_pin_%s" % (index + 1), xpos, Y0 - 18.0, 12.0, 2.0, 5.0, 2.0))
+
+    # Szyny i prowadnice na jednej wysokosci z arkuszem.
+    path.append(box("rail_left", -130.0, -158.0, -48.0, 370.0, 8.0, 8.0))
+    path.append(box("rail_right", -130.0, 150.0, -48.0, 370.0, 8.0, 8.0))
+    path.append(box("entrance_guide", -120.0, -125.0, -2.2, 96.0, 250.0, 1.6))
+    path.append(box("paper_guide", -24.0, -125.0, -2.2, 8.0, 250.0, 1.6))
+
+    path.append(optical("sensor_fuser_buckle", -62.0, -146.0, -16.0))
+    path.append(box("buckle_flag", -56.0, -132.0, -2.0, 1.4, 22.0, 12.0))
+    path.append(optical("sensor_narrow_media", -62.0, 132.0, -16.0))
+    path.append(box("narrow_flag", -56.0, 116.0, -2.0, 1.4, 18.0, 12.0))
+
+    nip = Part.makeBox(8.0, 10.0, 16.0, FreeCAD.Vector(-30.0, -18.0, -2.0))
+    nip = nip.fuse(Part.makeBox(8.0, 10.0, 16.0, FreeCAD.Vector(-30.0, 8.0, -2.0)))
+    nip = nip.fuse(Part.makeBox(8.0, 36.0, 4.0, FreeCAD.Vector(-30.0, -18.0, 10.0)))
+    path.append(put("sensor_fuser_nip", nip.removeSplitter()))
+
+    path.append(optical("sensor_fuser_exit", 66.0, -12.0, 4.0))
     guide = [
-        FreeCAD.Vector(60.0, 0, 16.0),
-        FreeCAD.Vector(96.0, 0, 20.0),
-        FreeCAD.Vector(96.0, 0, 22.0),
-        FreeCAD.Vector(58.0, 0, 18.0),
+        FreeCAD.Vector(70.0, 0, 14.0),
+        FreeCAD.Vector(108.0, 0, 14.0),
+        FreeCAD.Vector(108.0, 0, 16.0),
+        FreeCAD.Vector(70.0, 0, 16.0),
     ]
-    path.append(plate_xz("redrive_guide", guide, -125.0, 250.0, (0.62, 0.66, 0.70)))
+    path.append(plate("redrive_guide", guide, -120.0, 240.0))
+    path.append(optical("sensor_redrive", 86.0, 118.0, -16.0))
+    path.append(box("redrive_flag", 90.0, 108.0, -2.0, 1.4, 14.0, 12.0))
 
-    path.append(along_y("decurl_lower", 9.0, 230.0, 112.0, -115.0, -5.0, (0.55, 0.56, 0.58)))
-    path.append(along_y("decurl_upper", 9.0, 230.0, 120.0, -115.0, 9.0, (0.55, 0.56, 0.58)))
-    path.append(box("sensor_paper_exit", 136.0, 96.0, 2.0, 12.0, 16.0, 14.0, (0.16, 0.38, 0.78)))
+    path.append(cyl_y("decurl_lower", 8.0, 240.0, 118.0, -120.0, -7.8))
+    path.append(cyl_y("decurl_upper", 8.0, 240.0, 124.0, -120.0, 8.2))
+    path.append(optical("sensor_paper_exit", 142.0, 108.0, -16.0))
+    path.append(box("exit_flag", 146.0, 100.0, -2.0, 1.4, 12.0, 12.0))
 
     diverter = [
-        FreeCAD.Vector(148.0, 0, 6.0),
-        FreeCAD.Vector(176.0, 0, 24.0),
-        FreeCAD.Vector(176.0, 0, 26.0),
-        FreeCAD.Vector(148.0, 0, 8.0),
+        FreeCAD.Vector(156.0, 0, 1.2),
+        FreeCAD.Vector(184.0, 0, 7.0),
+        FreeCAD.Vector(184.0, 0, 8.4),
+        FreeCAD.Vector(156.0, 0, 2.6),
     ]
-    path.append(plate_xz("diverter", diverter, -110.0, 220.0, (0.40, 0.42, 0.45)))
+    path.append(plate("diverter", diverter, -115.0, 230.0))
     duplex = [
-        FreeCAD.Vector(150.0, 0, -2.0),
-        FreeCAD.Vector(186.0, 0, -16.0),
-        FreeCAD.Vector(186.0, 0, -18.0),
-        FreeCAD.Vector(150.0, 0, -4.0),
+        FreeCAD.Vector(158.0, 0, -3.0),
+        FreeCAD.Vector(196.0, 0, -8.0),
+        FreeCAD.Vector(196.0, 0, -9.4),
+        FreeCAD.Vector(158.0, 0, -4.4),
     ]
-    path.append(plate_xz("duplex_entry", duplex, -110.0, 220.0, (0.40, 0.42, 0.45)))
+    path.append(plate("duplex_entry", duplex, -115.0, 230.0))
 
-    path.append(along_y("exit_roller", 13.0, 240.0, 188.0, -120.0, 4.0, (0.32, 0.33, 0.35)))
-    path.append(along_y("exit_idler", 8.0, 220.0, 188.0, -110.0, 22.0, (0.62, 0.63, 0.65)))
-    path.append(box("sensor_bin_full", 214.0, -130.0, 24.0, 16.0, 18.0, 12.0, (0.16, 0.38, 0.78)))
-    path.append(box("bin_flag", 206.0, -116.0, 20.0, 10.0, 2.0, 16.0, (0.16, 0.38, 0.78)))
+    path.append(cyl_y("exit_roller", 12.0, 250.0, 206.0, -125.0, -11.8))
+    path.append(cyl_y("exit_idler", 8.0, 230.0, 206.0, -115.0, 8.3))
+    path.append(optical("sensor_bin_full", 224.0, -146.0, 2.0))
+    path.append(box("bin_flag", 218.0, -134.0, 6.0, 12.0, 1.4, 14.0))
 
-    path.append(box("arkusz_in", -62.0, -105.0, 0.15, 24.0, 210.0, 0.25, (0.96, 0.94, 0.84), 35))
-    path.append(box("arkusz_out", 48.0, -105.0, 0.15, 150.0, 210.0, 0.25, (0.96, 0.94, 0.84), 35))
+    path.append(box("arkusz_in", -110.0, -105.0, 0.05, 86.0, 210.0, 0.18))
+    path.append(box("arkusz_out", 56.0, -105.0, 0.05, 160.0, 210.0, 0.18))
 
-    drive = []
-    drive.append(along_y("fuser_drive_gear", 22.0, 10.0, NIP_X, y_belt - 26.0, roll_z, (0.72, 0.73, 0.75)))
-    drive.append(along_y("pinion", 10.0, 16.0, NIP_X, y_belt - 36.0, roll_z + 30.0, (0.72, 0.73, 0.75)))
-    drive.append(
-        box(
-            "motor_fuser",
-            NIP_X - 16.0,
-            y_belt - 78.0,
-            roll_z + 14.0,
-            32.0,
-            42.0,
-            32.0,
-            (0.14, 0.14, 0.15),
-        )
-    )
+    drive.append(gear("fuser_drive_gear", 16.0, 8.0, NIP_X, Y0 - 18.0, roll_z, 18))
+    drive.append(gear("pinion", 8.0, 8.0, NIP_X, Y0 - 18.0, roll_z + 22.0, 12))
+    drive.append(box("motor_fuser", NIP_X - 16.0, Y0 - 78.0, roll_z + 6.0, 32.0, 42.0, 32.0))
+    drive.append(cyl_y("motor_shaft", 4.0, 20.0, NIP_X, Y0 - 36.0, roll_z + 22.0))
+
+    fan_y = Y0 - 36.0
+    fan_parts = [
+        Part.makeCylinder(8.0, 10.0, FreeCAD.Vector(NIP_X, fan_y, BELT_R), FreeCAD.Vector(0, 1, 0)),
+        Part.makeCylinder(24.0, 8.0, FreeCAD.Vector(NIP_X, fan_y + 1.0, BELT_R), FreeCAD.Vector(0, 1, 0)).cut(
+            Part.makeCylinder(18.0, 8.0, FreeCAD.Vector(NIP_X, fan_y + 1.0, BELT_R), FreeCAD.Vector(0, 1, 0))
+        ),
+    ]
+    for index in range(7):
+        blade = Part.makeBox(2.2, 2.0, 14.0, FreeCAD.Vector(NIP_X - 1.1, fan_y + 4.0, BELT_R + 6.0))
+        blade.rotate(FreeCAD.Vector(NIP_X, fan_y + 5.0, BELT_R), FreeCAD.Vector(0, 1, 0), index * (360.0 / 7.0))
+        fan_parts.append(blade)
+    drive.append(put("fuser_fan", Part.makeCompound(fan_parts)))
 
     try:
         import Draft
 
-        tag = Draft.makeShapeString(
-            "41X0253  type 01  220-240 V",
-            "C:/Windows/Fonts/arial.ttf",
-            7.0,
-        )
-        tag.Placement = FreeCAD.Placement(
-            FreeCAD.Vector(-2.0, -78.0, 40.0), FreeCAD.Rotation()
-        )
+        tag = Draft.makeShapeString("41X0253  type 01  220-240 V", "C:/Windows/Fonts/arial.ttf", 6.5)
+        tag.Placement = FreeCAD.Placement(FreeCAD.Vector(-8.0, -70.0, 37.2), FreeCAD.Rotation())
         tag.Label = "oznaczenie_41X0253"
-        colors[tag.Name] = (0.05, 0.05, 0.05)
-        cru.append(tag)
     except Exception as exc:
-        sys.stderr.write(f"napis pominiety: {exc}\n")
+        sys.stderr.write("napis pominiety: %s\n" % exc)
 
     def pack(name, objects):
         group = doc.addObject("App::DocumentObjectGroup", name)
