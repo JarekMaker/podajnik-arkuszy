@@ -12,7 +12,7 @@ Wirtualna stacja podawania arkusza. Program PLC prowadzi arkusz po czujnikach, s
 
 | Folder | Narzędzie | Zawartość |
 |---|---|---|
-| `plc/` | OpenPLC, CODESYS albo SCL w TIA Portal | IEC 61131-3, język ST. Bloki `FB_EStop`, `FB_Motor`, `FB_SheetTrack`, `FB_PID` i program `Main` |
+| `plc/` | OpenPLC, CODESYS albo SCL w TIA Portal | IEC 61131-3, język ST. Bloki `FB_EStop`, `FB_Motor`, `FB_SheetTrack`, `FB_PID`, `FB_FuserBuckle`, `FB_FuserLife` i program `Main` |
 | `electrical/` | KiCad 8 | schemat ideowy szafy i lista wejść/wyjść |
 | `mechanical/` | FreeCAD | parametryczny model ramy i rolek, podgląd SVG |
 | `hmi/` | Python 3 | podgląd, testy, konsola i mapa Modbus |
@@ -42,6 +42,8 @@ Kody stanu na `%QW1`:
 
 Grzałka to rolka 24 V z zadaniem 80 °C, nie piec lasera. Regulator jest w `FB_PID`. Wyjście analogowe `%QW0` ma zakres 0..1000, czyli 0,0..100,0 %.
 
+Fuser type 01 (41X0253) w tej rodzinie maszyn wymienia się po 150 000 stron. `FB_FuserLife` liczy arkusze od osobnego kasowania `%IX1.2`. Od 140 000 jest ostrzeżenie, przy 150 000 lampa awarii świeci i nowy start nie przechodzi. Na `%QW4` widać tysiące stron, na `%QW5` kod 0, 1 albo 2.
+
 `UseFeedback` w `Main` jest ustawione na FALSE. Na prawdziwej szafie przestaw je na TRUE i podepnij styk pomocniczy stycznika pod `%IX1.1`. Brak styku przez 500 ms jest awarią napędu.
 
 ## Test logiki
@@ -50,6 +52,7 @@ Python nie wymaga bibliotek.
 
 ```bat
 py hmi\test_sheet_logic.py
+py hmi\test_fuser_life.py
 py hmi\panel.py
 ```
 
@@ -59,7 +62,7 @@ py hmi\panel.py
 
 1. Zainstaluj [OpenPLC Editor](https://autonomylogic.com/).
 2. Załóż projekt z programem `Main` i czterema blokami funkcyjnymi.
-3. Wklej pliki z `plc/`. Nazwy bloków muszą zostać: `FB_EStop`, `FB_Motor`, `FB_SheetTrack`, `FB_PID`.
+3. Wklej pliki z `plc/`. Nazwy bloków muszą zostać: `FB_EStop`, `FB_Motor`, `FB_SheetTrack`, `FB_PID`, `FB_FuserBuckle`, `FB_FuserLife`.
 4. Ustaw cykl zadania na 10 ms.
 5. Wgraj program na runtime i włącz serwer Modbus TCP.
 
@@ -86,6 +89,7 @@ Podgląd z boku jest w `mechanical/podajnik.svg`. Model 3D:
 
 ```bat
 freecadcmd mechanical\build_model.py
+freecadcmd mechanical\build_fuser.py
 ```
 
-Wymiary ramy, rolek i rozstawu są na górze `mechanical/build_model.py`. Zmiana `LENGTH` przebudowuje ramę. Plik `podajnik.FCStd` powstaje obok skryptu i nie wchodzi do gita.
+Wymiary ramy, rolek i rozstawu są na górze `mechanical/build_model.py`. Zmiana `LENGTH` przebudowuje ramę. Plik `podajnik.FCStd` powstaje obok skryptu i nie wchodzi do gita. Fuser buduje `mechanical/build_fuser.py`, plik `fuser.FCStd` też zostaje lokalnie.

@@ -54,6 +54,7 @@
         <button type="button" class="ghost" data-mode="narrow">Wąski papier</button>
         <button type="button" class="ghost" data-mode="wrap">Zawinięcie</button>
         <button type="button" class="ghost" data-mode="duplex">Dupleks</button>
+        <button type="button" class="ghost" data-mode="near">Blisko 150 tys.</button>
       </span>
     </div>
   </div>
@@ -85,6 +86,7 @@ const statsEl = document.getElementById("stats");
 let mode = "idle";
 let progress = 0;
 let last = 0;
+let pages = 0;
 
 function pointAt(path, t) {
   const span = path.length - 1;
@@ -120,7 +122,9 @@ function paint(px, py, deg, covered) {
     duplex: "Tył arkusza minął czujnik wyjścia. Papier cofa się w ścieżkę dupleksu."
   };
   alarmEl.textContent = texts[mode];
-  statsEl.textContent = "silnik " + run.pct + "% · " + run.temp + " °C";
+  const service = pages >= 150000 ? " · wymiana fusera" : pages >= 140000 ? " · ostrzeżenie serwisu" : "";
+  statsEl.textContent = "silnik " + run.pct + "% · " + run.temp + " °C · fuser " + pages;
+  if (service) alarmEl.textContent = alarmEl.textContent + service;
   sensors.forEach((s, i) => {
     const dot = document.querySelectorAll(".dot")[i];
     dot.setAttribute("fill", covered[i] ? "#2f7d4a" : "#c8c0b4");
@@ -156,6 +160,7 @@ function frame(now) {
     t = (progress - 0.78) / 0.35;
   }
   if (progress >= (mode === "duplex" ? 1.15 : 1)) {
+    if (mode !== "wrap") pages += 1;
     mode = "idle";
     progress = 0;
     paint(null, null, 0, [false, false, false, false]);
@@ -172,6 +177,14 @@ function frame(now) {
 document.getElementById("actions").onclick = (event) => {
   const button = event.target.closest("button");
   if (!button) return;
+  if (button.dataset.mode === "near") {
+    pages = 149999;
+    mode = "idle";
+    progress = 0;
+    paint(null, null, 0, [false, false, false, false]);
+    document.querySelectorAll("#actions button").forEach((el) => el.classList.toggle("on", el === button));
+    return;
+  }
   mode = button.dataset.mode;
   progress = 0;
   last = 0;
