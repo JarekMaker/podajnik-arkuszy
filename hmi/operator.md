@@ -7,3 +7,4 @@
 5. Stop w trakcie, gdy arkusz jest na czujniku, to zaciecie.
 6. Zdejmij arkusz, dopiero potem reset.
 7. Sam powrot grzyba nic nie uruchamia. Po zamknieciu znowu reset.
+8. Zawiniecie na pas (czujnik wyjscia fusera) gasi silnik fusera i grzalke. Arkusz wyciagaj do tylu.

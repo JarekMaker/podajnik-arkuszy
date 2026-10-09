@@ -44,6 +44,8 @@ Grzałka to rolka 24 V z zadaniem 80 °C, nie piec lasera. Regulator jest w `FB_
 
 Fuser type 01 (41X0253) w tej rodzinie maszyn wymienia się po 150 000 stron. `FB_FuserLife` liczy arkusze od osobnego kasowania `%IX1.2`. Od 140 000 jest ostrzeżenie, przy 150 000 lampa awarii świeci i nowy start nie przechodzi. Na `%QW4` widać tysiące stron, na `%QW5` kod 0, 1 albo 2.
 
+`FB_FuserBuckle` kręci silnikiem fusera. Duże wybrzuszenie w nipie daje 130%, małe 70%, wąskie medium ścina do 80%. Zawinięcie na pasie (`%IX1.7`) stawia prędkość na 0, gasi grzałkę i zapala lampę awarii. Procent jest na `%QW6`.
+
 `UseFeedback` w `Main` jest ustawione na FALSE. Na prawdziwej szafie przestaw je na TRUE i podepnij styk pomocniczy stycznika pod `%IX1.1`. Brak styku przez 500 ms jest awarią napędu.
 
 ## Test logiki
@@ -53,6 +55,7 @@ Python nie wymaga bibliotek.
 ```bat
 py hmi\test_sheet_logic.py
 py hmi\test_fuser_life.py
+py hmi\test_fuser_buckle.py
 py hmi\panel.py
 ```
 
