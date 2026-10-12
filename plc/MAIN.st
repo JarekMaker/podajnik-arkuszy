@@ -38,6 +38,7 @@ VAR
     QW_FuserK AT %QW4 : INT; (* tysiace stron od resetu fusera *)
     QW_FuserSvc AT %QW5 : INT; (* 0 ok, 1 ostrzezenie, 2 wymiana *)
     QW_FuserSpeed AT %QW6 : INT; (* procent predkosci silnika fusera *)
+    QW_Warm AT %QW7 : INT; (* 0 zimna, 1 gotowa, 2 przegrzanie *)
 
     EStop : FB_EStop;
     Drive : FB_Motor;
@@ -45,6 +46,7 @@ VAR
     Heat : FB_PID;
     FuserLife : FB_FuserLife;
     Buckle : FB_FuserBuckle;
+    Warmup : FB_Warmup;
     rStart : R_TRIG;
     rStop : R_TRIG;
     rReset : R_TRIG;
@@ -77,7 +79,17 @@ Buckle(
     Wrap := I_FuserWrap
 );
 
-IF rStart.Q AND MotionOk AND NOT Track.Busy AND NOT FuserLife.Due AND NOT Buckle.Jam THEN
+TempC := INT_TO_REAL(IW_TempRaw) / 10.0;
+Warmup(
+    Enable := EStop.RunEnable AND I_CoverClosed AND NOT FuserLife.Due,
+    Actual := TempC
+);
+
+IF Warmup.Overtemp THEN
+    RunRequest := FALSE;
+END_IF;
+
+IF rStart.Q AND MotionOk AND NOT Track.Busy AND NOT FuserLife.Due AND NOT Buckle.Jam AND Warmup.Ready THEN
     RunRequest := TRUE;
 END_IF;
 
@@ -98,9 +110,8 @@ Drive(
     Reset := rReset.Q
 );
 
-TempC := INT_TO_REAL(IW_TempRaw) / 10.0;
 Heat(
-    Enable := EStop.RunEnable AND I_CoverClosed AND NOT Track.Jam AND NOT Drive.Fault,
+    Enable := EStop.RunEnable AND I_CoverClosed AND NOT Track.Jam AND NOT Drive.Fault AND NOT Warmup.Overtemp,
     Setpoint := 80.0,
     Actual := TempC,
     Kp := 4.0,
@@ -113,7 +124,7 @@ Heat(
 
 IF NOT EStop.RunEnable THEN
     State := 7;
-ELSIF Drive.Fault OR I_MotorFault THEN
+ELSIF Drive.Fault OR I_MotorFault OR Warmup.Overtemp THEN
     State := 6;
 ELSIF Buckle.Jam OR Track.Jam THEN
     State := 5;
@@ -133,7 +144,7 @@ Q_Motor := Drive.Run AND EStop.RunEnable;
 Q_Clutch := Track.Clutch AND EStop.RunEnable AND I_CoverClosed AND NOT Track.Jam;
 Q_Gate := Track.AtRegister AND EStop.RunEnable AND I_CoverClosed AND NOT Track.Jam;
 Q_LampRun := Q_Motor;
-Q_LampFault := Track.Jam OR Drive.Fault OR NOT EStop.RunEnable OR FuserLife.Due OR Buckle.Jam;
+Q_LampFault := Track.Jam OR Drive.Fault OR NOT EStop.RunEnable OR FuserLife.Due OR Buckle.Jam OR Warmup.Overtemp;
 Q_Heater := (Heat.Out > 1.0) AND Buckle.HeaterOn;
 Q_FuserMotor := Buckle.SpeedPct > 0;
 
@@ -150,5 +161,12 @@ ELSE
     QW_FuserSvc := 0;
 END_IF;
 QW_FuserSpeed := Buckle.SpeedPct;
+IF Warmup.Overtemp THEN
+    QW_Warm := 2;
+ELSIF Warmup.Ready THEN
+    QW_Warm := 1;
+ELSE
+    QW_Warm := 0;
+END_IF;
 
 END_PROGRAM
