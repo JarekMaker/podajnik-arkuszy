@@ -56,7 +56,7 @@
 <body>
 <main>
   <h1>Podajnik arkuszy</h1>
-  <p class="lead">Ta sama sekwencja co w programie PLC: sprzęgło, trzy czujniki, 800 ms na odcinek.</p>
+  <p class="lead">Start puszcza arkusz dopiero, gdy rolka dojdzie do 70 °C. Powyżej 95 °C grzałka odpada.</p>
   <div class="stage">
     <svg viewBox="0 0 860 250" id="drawing">
       <line x1="70" y1="170" x2="790" y2="170" stroke="#1c1a17" stroke-width="8"/>
@@ -82,7 +82,7 @@
         <button type="button" id="btnStart">Start</button>
         <button type="button" id="btnStop" class="ghost">Stop</button>
         <button type="button" id="btnJam" class="ghost">Zacięcie</button>
-        <button type="button" id="btnClear" class="ghost">Zdejmij arkusz</button>
+        <button type="button" id="btnHot" class="ghost">Za gorąco</button>
       </span>
     </div>
   </div>
@@ -159,19 +159,22 @@ Feeder.prototype.step = function (inp) {
   if (rReset && this.jam && !path) { this.jam = false; this.phase = 0; this.timer = 0; }
   if (rStop || !this.runEnable || inp.motorFault || !inp.coverClosed) this.runRequest = false;
 
-  const motion = this.runEnable && inp.coverClosed && !this.fault && !this.jam;
-  if (rStart && motion && !this.busy) this.runRequest = true;
+  const ready = inp.temp >= 70 && inp.temp <= 95;
+  this.overtemp = inp.temp > 95 && this.runEnable && inp.coverClosed;
+  this.warmReady = ready && this.runEnable && inp.coverClosed;
+  const motion = this.runEnable && inp.coverClosed && !this.fault && !this.jam && !this.overtemp;
+  if (rStart && motion && !this.busy && this.warmReady) this.runRequest = true;
   const feed = this.runRequest && motion;
   this.track(feed, inp, rEntry, rExit, path);
 
   this.motor = this.motor && motion && !this.jam;
   if (this.jam || !motion) { this.clutch = false; this.gate = false; }
 
-  if (!(this.runEnable && inp.coverClosed && !this.jam && !this.fault)) this.heat = 0;
+  if (!(this.runEnable && inp.coverClosed && !this.jam && !this.fault) || this.overtemp) this.heat = 0;
   else this.heat = 100;
 
   this.busy = this.jam || this.phase !== 0 || this.clutch;
-  this.state = !this.runEnable ? 7 : this.fault ? 6 : this.jam ? 5 : !inp.coverClosed ? 8
+  this.state = !this.runEnable ? 7 : (this.fault || this.overtemp) ? 6 : this.jam ? 5 : !inp.coverClosed ? 8
     : this.phase === 1 ? 3 : (this.phase === 2 || this.phase === 3) ? 4 : this.clutch ? 2 : 1;
 };
 Feeder.prototype.track = function (feed, inp, rEntry, rExit, path) {
@@ -209,7 +212,8 @@ const machine = new Feeder();
 let sheetX = null;
 let blockReg = false;
 let pulse = { start: false, stop: false, reset: false };
-let estopOk = true;
+let temp = 25;
+let forceHot = false;
 let coverClosed = true;
 
 function hits(center) {
@@ -218,14 +222,17 @@ function hits(center) {
 }
 
 function paint() {
-  machine.lampFault = machine.jam || machine.fault || !machine.runEnable;
+  machine.lampFault = machine.jam || machine.fault || machine.overtemp || !machine.runEnable;
   const name = NAMES[machine.state];
   stateEl.textContent = name;
-  document.getElementById("alarm").textContent = ALARM[name];
+  let alarm = ALARM[name];
+  if (name === "READY" && !machine.warmReady) alarm = "Rolka " + Math.round(temp) + " C. Start po 70 C.";
+  if (machine.overtemp) alarm = "Przegrzanie. Grzalka odpada powyzej 95 C.";
+  document.getElementById("alarm").textContent = alarm;
   stateEl.style.color = (name === "JAM" || name === "ESTOP" || name === "FAULT") ? "#a33b24" : "#1c1a17";
   lampRun.className = "lamp" + (machine.motor ? " on-run" : "");
   lampFault.className = "lamp" + (machine.lampFault ? " on-fault" : "");
-  stats.textContent = "arkusze " + machine.sheets + " · grzalka " + machine.heat + "%";
+  stats.textContent = "arkusze " + machine.sheets + " · " + Math.round(temp) + " C · grzalka " + machine.heat + "%";
   const entry = hits(230);
   const reg = hits(408) && !blockReg;
   const exit = hits(560);
@@ -239,12 +246,15 @@ function tick() {
   if (machine.clutch && sheetX == null) sheetX = 70;
   if (machine.motor && sheetX != null) sheetX += 4;
   if (sheetX != null && sheetX > 760) sheetX = null;
+  if (forceHot) temp = 110;
+  else if (machine.heat > 0 && temp < 80) temp = Math.min(80, temp + 0.12);
+  else if (!forceHot && temp > 25) temp = Math.max(25, temp - 0.04);
   const entry = hits(230);
   const reg = hits(408) && !blockReg;
   const exit = hits(560);
   machine.step({
     estopOk, coverClosed, sensEntry: entry, sensRegister: reg, sensExit: exit,
-    motorFault: false, start: pulse.start, stop: pulse.stop, reset: pulse.reset
+    motorFault: false, start: pulse.start, stop: pulse.stop, reset: pulse.reset, temp: temp
   });
   pulse.start = pulse.stop = pulse.reset = false;
   if (!machine.runRequest) blockReg = false;
@@ -264,6 +274,11 @@ document.getElementById("btnStart").onclick = () => { blockReg = false; pulse.st
 document.getElementById("btnStop").onclick = () => { pulse.stop = true; };
 document.getElementById("btnJam").onclick = () => { blockReg = true; pulse.start = true; };
 document.getElementById("btnClear").onclick = () => { sheetX = null; blockReg = false; };
+document.getElementById("btnHot").onclick = () => {
+  forceHot = !forceHot;
+  if (!forceHot) temp = 80;
+  document.getElementById("btnHot").textContent = forceHot ? "Za gorąco: tak" : "Za gorąco";
+};
 paint();
 setInterval(tick, 10);
 </script>
