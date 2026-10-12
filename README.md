@@ -12,7 +12,7 @@ Wirtualna stacja podawania arkusza. Program PLC prowadzi arkusz po czujnikach, s
 
 | Folder | Narzędzie | Zawartość |
 |---|---|---|
-| `plc/` | OpenPLC, CODESYS albo SCL w TIA Portal | IEC 61131-3, język ST. Bloki `FB_EStop`, `FB_Motor`, `FB_SheetTrack`, `FB_PID`, `FB_FuserBuckle`, `FB_FuserLife` i program `Main` |
+| `plc/` | OpenPLC, CODESYS albo SCL w TIA Portal | IEC 61131-3, język ST. Bloki `FB_EStop`, `FB_Motor`, `FB_SheetTrack`, `FB_PID`, `FB_FuserBuckle`, `FB_FuserLife`, `FB_Warmup` i program `Main` |
 | `electrical/` | KiCad 8 | schemat ideowy szafy i lista wejść/wyjść |
 | `mechanical/` | FreeCAD | parametryczny model ramy i rolek, podgląd SVG |
 | `hmi/` | Python 3 | podgląd, testy, konsola i mapa Modbus |
@@ -46,6 +46,8 @@ Fuser type 01 (41X0253) w tej rodzinie maszyn wymienia się po 150 000 stron. `F
 
 `FB_FuserBuckle` kręci silnikiem fusera. Duże wybrzuszenie w nipie daje 130%, małe 70%, wąskie medium ścina do 80%. Zawinięcie na pasie (`%IX1.7`) stawia prędkość na 0, gasi grzałkę i zapala lampę awarii. Procent jest na `%QW6`.
 
+`FB_Warmup` nie puszcza sprzęgła, dopóki rolka nie wejdzie w 70..95 °C. Powyżej 95 °C stan schodzi na `FAULT`, grzałka gaśnie. Kod na `%QW7`: 0 zimna, 1 gotowa, 2 przegrzanie. W podglądzie rolka nagrzewa się sama po resecie; przycisk „Za gorąco” pokazuje próg.
+
 `UseFeedback` w `Main` jest ustawione na FALSE. Na prawdziwej szafie przestaw je na TRUE i podepnij styk pomocniczy stycznika pod `%IX1.1`. Brak styku przez 500 ms jest awarią napędu.
 
 ## Test logiki
@@ -56,6 +58,7 @@ Python nie wymaga bibliotek.
 py hmi\test_sheet_logic.py
 py hmi\test_fuser_life.py
 py hmi\test_fuser_buckle.py
+py hmi\test_warmup.py
 py hmi\panel.py
 ```
 
@@ -65,7 +68,7 @@ py hmi\panel.py
 
 1. Zainstaluj [OpenPLC Editor](https://autonomylogic.com/).
 2. Załóż projekt z programem `Main` i czterema blokami funkcyjnymi.
-3. Wklej pliki z `plc/`. Nazwy bloków muszą zostać: `FB_EStop`, `FB_Motor`, `FB_SheetTrack`, `FB_PID`, `FB_FuserBuckle`, `FB_FuserLife`.
+3. Wklej pliki z `plc/`. Nazwy bloków muszą zostać: `FB_EStop`, `FB_Motor`, `FB_SheetTrack`, `FB_PID`, `FB_FuserBuckle`, `FB_FuserLife`, `FB_Warmup`.
 4. Ustaw cykl zadania na 10 ms.
 5. Wgraj program na runtime i włącz serwer Modbus TCP.
 
