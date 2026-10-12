@@ -30,3 +30,4 @@ I_NarrowMedia,%IX1.6,BOOL,Wąskie medium, prawy czujnik
 I_FuserWrap,%IX1.7,BOOL,Czujnik wyjścia fusera, zawinięcie na pas
 Q_FuserMotor,%QX0.6,BOOL,Silnik fusera
 QW_FuserSpeed,%QW6,INT,Prędkość silnika fusera, procent
+QW_Warm,%QW7,INT,0 rolka zimna, 1 gotowa od 70 °C, 2 przegrzanie powyżej 95 °C

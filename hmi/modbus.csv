@@ -6,3 +6,4 @@ rejestr,plc,jednostka,opis
 4,%QW4,tysiace,strony fusera od resetu serwisowego
 5,%QW5,kod,0 ok 1 ostrzezenie 2 wymiana fusera
 6,%QW6,procent,predkosc silnika fusera 0 70 80 100 130
+7,%QW7,kod,0 zimna rolka 1 gotowa 2 przegrzanie

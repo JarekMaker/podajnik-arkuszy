@@ -6,3 +6,4 @@ kod,stan,kiedy,co_zrobic
 1,FUSER_WARN,licznik fusera od 140 tys stron,zaplanuj komplet 41X0556
 2,FUSER_DUE,150 tys stron na fuserze type 01,wymien 41X0253 i skasuj licznik na IX1.2
 5,FUSER_WRAP,arkusz nawinal sie na pas,zdejmij arkusz z pasa, nie ciagnij go do przodu
+6,OVERTEMP,rolka powyzej 95 C,wylacz grzalke i sprawdz czujnik temperatury
